@@ -1,0 +1,2 @@
+-- Legacy schema retained for reference. Use pinjam-kuy-clean.sql for active schema.
+-- (Original content moved manually if needed)
