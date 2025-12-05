@@ -299,6 +299,10 @@ async function ensurePerformanceIndexes(pool){
     await addIndex('loans', 'idx_loans_book', 'ALTER TABLE loans ADD INDEX idx_loans_book (book_id)');
     // books: filter by category
     await addIndex('books', 'idx_books_category', 'ALTER TABLE books ADD INDEX idx_books_category (category)');
+    // books: search by title/author/kodeBuku
+    await addIndex('books', 'idx_books_title', 'ALTER TABLE books ADD INDEX idx_books_title (title)');
+    await addIndex('books', 'idx_books_author', 'ALTER TABLE books ADD INDEX idx_books_author (author)');
+    await addIndex('books', 'idx_books_kodeBuku', 'ALTER TABLE books ADD INDEX idx_books_kodeBuku (kodeBuku)');
 }
 
 // Cek dan jalankan migrasi sederhana untuk kolom baru loans (kodePinjam, purpose)

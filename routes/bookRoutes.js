@@ -27,7 +27,7 @@ const uploadCover = [
     upload.any(),
     (req, res, next) => {
         if (!req.file && Array.isArray(req.files)) {
-            const candidates = ['coverImage','image','cover'];
+            const candidates = ['coverImage','image','cover','file','cover_buku'];
             const f = req.files.find(x => candidates.includes(x.fieldname));
             if (f) req.file = f;
         }
