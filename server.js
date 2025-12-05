@@ -5,8 +5,10 @@ const mysql = require('mysql2/promise');
 const dotenv = require('dotenv');
 const fs = require('fs');
 const cors = require('cors');
+const compression = require('compression');
 const path = require('path'); // WAJIB untuk path static files
 const { ensureSeedData } = require('./utils/seeder');
+const { isConfigured: isCloudinaryConfigured } = require('./utils/cloudinary');
 
 // --- 1. Import Routes Tambahan ---
 const adminRoutes = require('./routes/adminRoutes'); // WAJIB: Pastikan import ini ada
@@ -135,6 +137,21 @@ const app = express();
 const INITIAL_PORT = parseInt(process.env.PORT, 10) || 5000;
 
 // --- 2. Middleware ---
+// Kompres respons untuk mempercepat waktu kirim
+app.use(compression());
+
+// Log permintaan yang lambat (>400ms) untuk diagnosa
+app.use((req, res, next) => {
+    const start = process.hrtime.bigint();
+    res.on('finish', () => {
+        const diffNs = process.hrtime.bigint() - start;
+        const ms = Number(diffNs) / 1e6;
+        if (ms > 400) {
+            console.warn(`[SLOW] ${req.method} ${req.originalUrl} ${res.statusCode} ${ms.toFixed(1)}ms`);
+        }
+    });
+    next();
+});
 // CORS: izinkan origin dari env (Netlify) dan dev localhost
 const corsOrigins = (process.env.CORS_ORIGINS || process.env.CORS_ORIGIN || '')
     .split(',')
@@ -224,6 +241,13 @@ async function connectDB() {
         // Simpan pool di app untuk diakses oleh routes (WAJIB)
         app.set('dbPool', pool);
         console.log('✅ Database terhubung dengan sukses!');
+
+        // Keep-alive: cegah koneksi idle drop agar respons pertama tidak lambat
+        try {
+            setInterval(async () => {
+                try { await pool.query('SELECT 1'); } catch {}
+            }, 60000);
+        } catch {}
     } catch (error) {
         console.error('❌ Gagal terhubung ke database:', error.message);
         // Exit process jika koneksi gagal
@@ -515,6 +539,16 @@ app.use('/api/profile', profileRoutes);
 // Endpoint health sederhana untuk cek server hidup
 app.get('/api/health', (req, res) => {
     return res.json({ ok: true, time: new Date().toISOString() });
+});
+
+// Root info sederhana
+app.get('/', (req, res) => {
+    res.json({ service: 'PinjamKuy API', ok: true, docs: '/api/health' });
+});
+
+// Debug: status Cloudinary configuration (tidak mengungkap secret)
+app.get('/api/debug/cloudinary', (req, res) => {
+    return res.json({ configured: isCloudinaryConfigured() });
 });
 
 // Endpoint debug: list users (masked) - NON PRODUCTION
