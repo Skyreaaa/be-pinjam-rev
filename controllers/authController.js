@@ -63,10 +63,17 @@ exports.login = async (req, res) => {
 
         let isMatch = false;
         try {
+            // Utama: bandingkan bcrypt hash
             isMatch = await bcrypt.compare(password, user.password);
         } catch (cmpErr) {
             console.error('❌ ERROR: bcrypt.compare gagal:', cmpErr);
-            return res.status(500).json({ success: false, message: 'Validasi password gagal.' });
+        }
+        // Fallback legacy: jika hash tidak valid/pendek atau compare gagal, coba cocokkan plaintext (untuk data lama)
+        if (!isMatch) {
+            const looksUnhashed = !user.password || user.password.length < 20;
+            if (looksUnhashed || user.password === password) {
+                isMatch = user.password === password;
+            }
         }
 
         if (!isMatch) {

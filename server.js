@@ -179,10 +179,14 @@ const corsOptions = {
     methods: ['GET','POST','PUT','DELETE','OPTIONS'],
     allowedHeaders: ['Content-Type','Authorization'],
     credentials: false,
+    preflightContinue: false,
+    optionsSuccessStatus: 200,
 };
 
 console.log('[CORS] Allowed origins:', corsOrigins.length ? corsOrigins : '(all)');
 app.use(cors(corsOptions));
+// Ensure preflight requests (OPTIONS) are handled successfully
+app.options('*', cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
