@@ -2,27 +2,20 @@
 
 const express = require('express');
 const router = express.Router();
-const jwt = require('jsonwebtoken'); 
 const loanController = require('../controllers/loanController'); 
+const checkAuth = require('../middleware/checkAuth');
 
-// --- Middleware Otentikasi Pengguna & Admin ---
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_default'; 
+// Gunakan middleware checkAuth terpusat agar konsisten dengan JWT_SECRET
+router.use(checkAuth);
 
-const authenticateUser = (req, res, next) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) { return res.status(401).json({ message: 'Akses Ditolak. Token tidak disediakan.' }); }
-
-    const token = authHeader.split(' ')[1];
-    jwt.verify(token, JWT_SECRET, (err, decoded) => {
-        if (err) { return res.status(401).json({ message: 'Token tidak valid.' }); }
-        
-        req.user = decoded; 
-        req.user.id = decoded.id; // Pastikan ID ada di req.user
-        next();
-    });
-};
-
-router.use(authenticateUser);
+// Kompatibilitas: beberapa controller mengakses req.user.id
+router.use((req, res, next) => {
+	if (req.userData) {
+		req.user = Object.assign({}, req.userData);
+		req.user.id = req.userData.id;
+	}
+	next();
+});
 
 // =========================================================
 //                       RUTE USER (Menggunakan loanController.js)
@@ -40,7 +33,18 @@ router.get('/user', loanController.getUserLoans);
 // Rute: POST /api/loans/ready-to-return/:id - Menandai buku siap dikembalikan
 const multer = require('multer');
 const uploadMem = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
-router.post('/ready-to-return/:id', uploadMem.single('proofPhoto'), loanController.markAsReadyToReturn); 
+const uploadReturnProof = [
+	uploadMem.any(),
+	(req, res, next) => {
+		if (!req.file && Array.isArray(req.files)) {
+			const candidates = ['proofPhoto','proof','photo','image'];
+			const f = req.files.find(x => candidates.includes(x.fieldname));
+			if (f) req.file = f;
+		}
+		next();
+	}
+];
+router.post('/ready-to-return/:id', ...uploadReturnProof, loanController.markAsReadyToReturn); 
 
 // Notifikasi approval (user login kapan saja tetap dapat)
 router.get('/notifications', loanController.getApprovalNotifications);

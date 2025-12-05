@@ -115,6 +115,12 @@ exports.getBookById = async (req, res) => {
 exports.createBook = async (req, res) => {
     const pool = getDBPool(req);
     const { title, kodeBuku, author, publisher, publicationYear, totalStock, category, location, description } = req.body;
+    // Kompatibilitas: jika upload.any() dipakai, ambil file dari req.files juga
+    if (!req.file && Array.isArray(req.files)) {
+        const candidates = ['coverImage','image','cover'];
+        const f = req.files.find(x => candidates.includes(x.fieldname));
+        if (f) req.file = f;
+    }
     
     let storedImageRef = null; // bisa secure_url (Cloudinary) atau filename (local)
 
@@ -178,6 +184,12 @@ exports.updateBook = async (req, res) => {
     const pool = getDBPool(req);
     const bookId = req.params.id;
     const { title, kodeBuku, author, publisher, publicationYear, totalStock, category, location, description, currentImageFileName } = req.body;
+    // Kompatibilitas: jika upload.any() dipakai, ambil file dari req.files juga
+    if (!req.file && Array.isArray(req.files)) {
+        const candidates = ['coverImage','image','cover'];
+        const f = req.files.find(x => candidates.includes(x.fieldname));
+        if (f) req.file = f;
+    }
 
     // Upload cover baru jika ada
     let newImageRef = null;

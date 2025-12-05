@@ -39,8 +39,19 @@ exports.updateBiodata = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Pengguna tidak ditemukan.' });
         }
 
-        const [rows] = await pool.query('SELECT id, npm, username, role, fakultas, prodi, angkatan, profile_photo_url, denda, active_loans_count FROM users WHERE npm = ? LIMIT 1', [npm]);
-        const updatedUser = rows[0] || null;
+        let rows;
+        try {
+            [rows] = await pool.query('SELECT id, npm, username, role, fakultas, prodi, angkatan, profile_photo_url, denda, active_loans_count FROM users WHERE npm = ? LIMIT 1', [npm]);
+        } catch (e) {
+            if (e && e.code === 'ER_BAD_FIELD_ERROR') {
+                // Fallback jika kolom active_loans_count belum ada di DB
+                [rows] = await pool.query('SELECT id, npm, username, role, fakultas, prodi, angkatan, profile_photo_url, denda FROM users WHERE npm = ? LIMIT 1', [npm]);
+                if (rows && rows[0]) rows[0].active_loans_count = 0;
+            } else {
+                throw e;
+            }
+        }
+        const updatedUser = (rows && rows[0]) ? rows[0] : null;
         res.status(200).json({
             success: true,
             message: 'Biodata berhasil diperbarui.',

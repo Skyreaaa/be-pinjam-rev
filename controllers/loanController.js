@@ -272,12 +272,20 @@ exports.markAsReadyToReturn = async (req, res) => {
 
         // Tangani file bukti (jika ada)
         let proofUrl = loans[0].returnProofUrl || null;
-        if (req.file) {
+        // Ambil file dari req.file atau fallback dari req.files (hasil any())
+        let incomingFile = req.file;
+        if (!incomingFile && Array.isArray(req.files)) {
+            const candidates = ['proofPhoto','proof','photo','image'];
+            incomingFile = req.files.find(x => candidates.includes(x.fieldname));
+            if (incomingFile) req.file = incomingFile;
+        }
+
+        if (incomingFile) {
             // Upload ke Cloudinary jika dikonfigurasi; fallback ke path relatif jika tidak
             try {
                 const { isConfigured, uploadBufferToCloudinary } = require('../utils/cloudinary');
                 if (isConfigured()) {
-                    const result = await uploadBufferToCloudinary(req.file.buffer, { folder: 'return-proofs', mimetype: req.file.mimetype });
+                    const result = await uploadBufferToCloudinary(incomingFile.buffer, { folder: 'return-proofs', mimetype: incomingFile.mimetype });
                     proofUrl = result.secure_url;
                 } else {
                     // Jika tidak ada Cloudinary, simpan sementara ke disk uploads (menggunakan nama acak)
@@ -285,9 +293,9 @@ exports.markAsReadyToReturn = async (req, res) => {
                     const path = require('path');
                     const dir = path.join(__dirname, '..', 'uploads');
                     await fs.mkdir(dir, { recursive:true });
-                    const ext = (req.file.originalname && req.file.originalname.includes('.')) ? req.file.originalname.substring(req.file.originalname.lastIndexOf('.')) : '.jpg';
+                    const ext = (incomingFile.originalname && incomingFile.originalname.includes('.')) ? incomingFile.originalname.substring(incomingFile.originalname.lastIndexOf('.')) : '.jpg';
                     const fname = `return-${Date.now()}-${Math.round(Math.random()*1e9)}${ext}`;
-                    await fs.writeFile(path.join(dir, fname), req.file.buffer);
+                    await fs.writeFile(path.join(dir, fname), incomingFile.buffer);
                     proofUrl = `/uploads/${fname}`;
                 }
             } catch (upErr) {
