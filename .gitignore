@@ -1,0 +1,9 @@
+node_modules/
+uploads/
+.env
+package-lock.json
+fly-install.ps1
+Dockerfile
+fly.toml
+.DS_Store
+Thumbs.db
