@@ -166,7 +166,13 @@ const corsOptions = {
     origin: function (origin, callback) {
         if (!origin) return callback(null, true); // requests tanpa origin (curl/postman)
         if (corsOrigins.length === 0) return callback(null, true); // fallback izinkan semua jika tidak diset
-        const allowed = corsOrigins.some((o) => origin === o || (o.endsWith('.netlify.app') && origin.endsWith('.netlify.app')));
+        const allowed = corsOrigins.some((o) => {
+            if (origin === o) return true;
+            // Izinkan semua subdomain vercel.app jika salah satu origin berakhiran vercel.app
+            if (o.endsWith('.vercel.app') && origin.endsWith('.vercel.app')) return true;
+            if (o.endsWith('.netlify.app') && origin.endsWith('.netlify.app')) return true;
+            return false;
+        });
         if (allowed) return callback(null, true);
         return callback(new Error('Not allowed by CORS: ' + origin));
     },
