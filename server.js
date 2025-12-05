@@ -180,6 +180,17 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Set timeout agar request tidak menggantung terlalu lama (15 detik)
+app.use((req, res, next) => {
+    res.setTimeout(15000, () => {
+        if (!res.headersSent) {
+            console.warn(`[TIMEOUT] ${req.method} ${req.originalUrl} melebihi 15s`);
+            try { res.status(504).json({ success:false, message:'Request timeout' }); } catch {}
+        }
+    });
+    next();
+});
+
 let pool;
 
 // Fungsi Koneksi Database (Menggunakan mysql2/promise)
@@ -191,7 +202,7 @@ async function connectDB() {
             password: process.env.DB_PASSWORD,
             port: process.env.DB_PORT ? parseInt(process.env.DB_PORT, 10) : undefined,
             waitForConnections: true,
-            connectionLimit: 10,
+            connectionLimit: 20,
             queueLimit: 0,
             multipleStatements: true // untuk impor schema fallback gabungan
         };
@@ -248,11 +259,46 @@ async function connectDB() {
                 try { await pool.query('SELECT 1'); } catch {}
             }, 60000);
         } catch {}
+        // Pastikan index performa penting tersedia
+        await ensurePerformanceIndexes(pool);
+
     } catch (error) {
         console.error('❌ Gagal terhubung ke database:', error.message);
         // Exit process jika koneksi gagal
         process.exit(1); 
     }
+}
+
+// Tambahkan index-index penting untuk query umum agar tidak full scan
+async function ensurePerformanceIndexes(pool){
+    async function hasIndex(table, indexName){
+        try {
+            const [rows] = await pool.query(`SHOW INDEX FROM ${table} WHERE Key_name = ?`, [indexName]);
+            return rows && rows.length > 0;
+        } catch {
+            return false;
+        }
+    }
+    async function addIndex(table, indexName, sql){
+        try {
+            const exists = await hasIndex(table, indexName);
+            if (!exists){
+                await pool.query(sql);
+                console.log(`[INDEX] Ditambahkan ${table}.${indexName}`);
+            }
+        } catch(e){
+            if (!/Duplicate|exists/i.test(e.message)){
+                console.warn(`[INDEX] Gagal menambah ${table}.${indexName}:`, e.message);
+            }
+        }
+    }
+
+    // loans: sering filter by user_id + status, dan join by book_id
+    await addIndex('loans', 'idx_loans_user_status', 'ALTER TABLE loans ADD INDEX idx_loans_user_status (user_id, status)');
+    await addIndex('loans', 'idx_loans_status', 'ALTER TABLE loans ADD INDEX idx_loans_status (status)');
+    await addIndex('loans', 'idx_loans_book', 'ALTER TABLE loans ADD INDEX idx_loans_book (book_id)');
+    // books: filter by category
+    await addIndex('books', 'idx_books_category', 'ALTER TABLE books ADD INDEX idx_books_category (category)');
 }
 
 // Cek dan jalankan migrasi sederhana untuk kolom baru loans (kodePinjam, purpose)
@@ -549,6 +595,19 @@ app.get('/', (req, res) => {
 // Debug: status Cloudinary configuration (tidak mengungkap secret)
 app.get('/api/debug/cloudinary', (req, res) => {
     return res.json({ configured: isCloudinaryConfigured() });
+});
+
+// 404 handler untuk route yang tidak ditemukan
+app.use((req, res, next) => {
+    res.status(404).json({ success:false, message:'Not Found' });
+});
+
+// Global error handler agar error tidak menggantung
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+    console.error('[ERROR]', err && (err.stack || err.message || err));
+    if (res.headersSent) return;
+    res.status(500).json({ success:false, message: err && err.message ? err.message : 'Internal Server Error' });
 });
 
 // Endpoint debug: list users (masked) - NON PRODUCTION

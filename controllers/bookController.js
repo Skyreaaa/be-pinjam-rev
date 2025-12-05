@@ -74,6 +74,8 @@ exports.getAllBooks = async (req, res) => {
             if (/^https?:\/\//i.test(img)) return { ...book, image_url: img };
             return { ...book, image_url: `${origin}/uploads/book-covers/${img}` };
         });
+        // Cache ringan untuk daftar buku (1 menit)
+        res.set('Cache-Control', 'public, max-age=60');
         res.json(booksWithFullPath);
     } catch (error) {
         console.error('❌ Error fetching books:', error);
@@ -100,6 +102,8 @@ exports.getBookById = async (req, res) => {
     } else {
         book.image_url = null;
     }
+        // Cache ringan untuk detail buku (2 menit)
+        res.set('Cache-Control', 'public, max-age=120');
         res.json(book);
     } catch (error) {
         console.error('❌ Error fetching book by ID:', error);

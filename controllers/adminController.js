@@ -104,16 +104,38 @@ exports.updateUser = async (req, res) => {
             return res.status(400).json({ message: 'NPM sudah digunakan oleh pengguna lain.' });
         }
 
-        let updateQuery = 'UPDATE users SET username = ?, npm = ?, role = ?, fakultas = ?, prodi = ?, angkatan = ?, denda = ?';
-        let params = [username, npm, role, fakultas || null, prodi || null, angkatan || null, denda, userId];
-        
+        // Siapkan bagian SET dinamis agar tidak memaksa field opsional (contoh: denda)
+        const setParts = [
+            'username = ?',
+            'npm = ?',
+            'role = ?',
+            'fakultas = ?',
+            'prodi = ?',
+            'angkatan = ?'
+        ];
+        const params = [
+            username,
+            npm,
+            role,
+            fakultas || null,
+            prodi || null,
+            angkatan || null
+        ];
+
+        // Hanya update denda jika disediakan dan valid angka
+        if (denda !== undefined && denda !== null && !isNaN(Number(denda))) {
+            setParts.push('denda = ?');
+            params.push(Number(denda));
+        }
+
         if (password) {
             const hashedPassword = await bcrypt.hash(password, 10);
-            updateQuery += ', password = ?';
-            params.splice(params.length - 1, 0, hashedPassword); // Sisipkan password hash sebelum userId
+            setParts.push('password = ?');
+            params.push(hashedPassword);
         }
-        
-        updateQuery += ' WHERE id = ?';
+
+        const updateQuery = `UPDATE users SET ${setParts.join(', ')} WHERE id = ?`;
+        params.push(userId);
 
         const [result] = await connection.query(updateQuery, params);
 
