@@ -55,31 +55,48 @@ async function seedBooksSample(pool) {
 }
 
 async function ensureSeedData(pool, options = {}) {
+  console.log('[SEED] ===== ensureSeedData START =====');
   const { force = false } = options;
   // Hitung user (kecuali admin default) & buku
+  console.log('[SEED] Checking user count...');
   const [[userCountRow]] = await pool.query('SELECT COUNT(*) AS cnt FROM users');
+  console.log('[SEED] User count:', userCountRow.cnt);
+  
+  console.log('[SEED] Checking book count...');
   const [[bookCountRow]] = await pool.query('SELECT COUNT(*) AS cnt FROM books');
+  console.log('[SEED] Book count:', bookCountRow.cnt);
+  
   const needUsers = force || userCountRow.cnt <= 1; // hanya admin atau kosong
   const needBooks = force || bookCountRow.cnt === 0;
-  if (!needUsers && !needBooks) return { skipped: true };
+  console.log('[SEED] Need users?', needUsers, '| Need books?', needBooks);
+  
+  if (!needUsers && !needBooks) {
+    console.log('[SEED] ===== ensureSeedData SKIPPED =====');
+    return { skipped: true };
+  }
 
   const dumpPath = path.join(__dirname, '..', 'sql', 'pinjam-kuy.sql');
   let dumpContent = null;
   if (fs.existsSync(dumpPath)) {
+    console.log('[SEED] Reading dump file...');
     try { dumpContent = fs.readFileSync(dumpPath, 'utf8'); } catch { /* ignore */ }
   }
   const result = { users: null, books: null };
   if (needUsers && dumpContent) {
+    console.log('[SEED] Seeding users from dump...');
     result.users = await seedUsersFromDump(pool, dumpContent);
   }
   if (needBooks) {
     // Dump tidak punya data buku -> seed sample jika diizinkan
     if (process.env.SEED_SAMPLE_BOOKS === 'true') {
+      console.log('[SEED] Seeding sample books...');
       result.books = await seedBooksSample(pool);
     } else {
+      console.log('[SEED] SEED_SAMPLE_BOOKS not true, skipping books');
       result.books = { inserted: 0, note: 'SEED_SAMPLE_BOOKS != true, lewati sample.' };
     }
   }
+  console.log('[SEED] ===== ensureSeedData COMPLETE =====');
   return result;
 }
 

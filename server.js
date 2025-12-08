@@ -199,8 +199,10 @@ async function connectDB() {
         // Simpan pool di app untuk diakses oleh routes (WAJIB)
         app.set('dbPool', pool);
         console.log('✅ Database terhubung dengan sukses!');
+        console.log('[DEBUG] connectDB() selesai tanpa error. Menunggu seed data...');
     } catch (error) {
         console.error('❌ Gagal terhubung ke database:', error.message);
+        console.error('[DEBUG] Full error:', error);
         // Exit process jika koneksi gagal
         process.exit(1); 
     }
@@ -463,8 +465,11 @@ async function seedAdminIfNeeded(pool) {
     }
 }
 
-// Inisiasi Koneksi
-connectDB();
+// Inisiasi Koneksi dengan proper error handling
+connectDB().catch((err) => {
+    console.error('❌ Fatal error in connectDB:', err);
+    process.exit(1);
+});
 
 // Safety: ensure req.app has dbPool on every request
 app.use((req, res, next) => {
@@ -764,3 +769,15 @@ async function ensureBooksDescriptionColumn(pool){
         console.warn('[MIGRATION] ensureBooksDescriptionColumn gagal:', e.message);
     }
 }
+
+// ===== GLOBAL ERROR HANDLERS =====
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ Unhandled Promise Rejection:', reason);
+    console.error('Promise:', promise);
+    // Don't exit immediately, log it for debugging
+});
+
+process.on('uncaughtException', (error) => {
+    console.error('❌ Uncaught Exception:', error);
+    process.exit(1);
+});

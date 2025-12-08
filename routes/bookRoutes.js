@@ -67,6 +67,10 @@ const upload = multer({
 //                  RUTE ADMINISTRATOR (CRUD BUKU)
 // =========================================================
 
+// =========================================================
+//                  RUTE ADMINISTRATOR (CRUD BUKU)
+// =========================================================
+
 // POST /api/books - Tambah Buku Baru
 router.post('/', authenticateAdmin, upload.single('coverImage'), bookController.createBook);
 
@@ -78,13 +82,25 @@ router.delete('/:id', authenticateAdmin, bookController.deleteBook);
 
 
 // =========================================================
-//                       RUTE UMUM/PENGGUNA
+//                       RUTE PUBLIC (TANPA AUTH)
 // =========================================================
 
-// GET /api/books - Mendapatkan Daftar Semua Buku (dengan filter search/kategori)
+// GET /api/books/public - PUBLIC endpoint untuk daftar buku (tanpa auth)
+// HARUS DI ATAS /:id agar tidak ter-catch sebagai :id
+router.get('/public', bookController.getAllBooks); 
+
+// GET /api/books/public/:id - PUBLIC endpoint untuk detail buku (tanpa auth)
+router.get('/public/:id', bookController.getBookById);
+
+
+// =========================================================
+//                       RUTE PROTECTED (DENGAN AUTH)
+// =========================================================
+
+// GET /api/books - Mendapatkan Daftar Semua Buku (dengan filter search/kategori) - PROTECTED
 router.get('/', authenticateUser, bookController.getAllBooks); 
 
-// GET /api/books/:id - Mendapatkan Detail Buku
+// GET /api/books/:id - Mendapatkan Detail Buku - PROTECTED
 router.get('/:id', authenticateUser, bookController.getBookById);
 
 module.exports = router;
